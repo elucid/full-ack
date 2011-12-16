@@ -70,7 +70,6 @@
 ;;
 ;;; Code:
 
-(eval-when-compile (require 'cl))
 (require 'compile)
 
 (add-to-list 'debug-ignored-errors
@@ -320,7 +319,7 @@ This can be used in `ack-root-directory-functions'."
     (setq beg (next-single-char-property-change beg 'ack-match))
     (while (< beg (point-max))
       (when (get-text-property beg 'ack-match)
-        (incf c))
+        (setq c (1+ c)))
       (setq beg (next-single-char-property-change beg 'ack-match)))
     c))
 
@@ -630,7 +629,7 @@ DIRECTORY is the root directory.  If called interactively, it is determined by
   (setq arg (* 2 arg))
   (unless (get-text-property pos 'ack-match)
     (setq arg (1- arg)))
-  (assert (> arg 0))
+  (unless (> arg 0) (error "Negative arg supplied"))
   (dotimes (i arg)
     (setq pos (next-single-property-change pos 'ack-match))
     (unless pos
@@ -640,7 +639,7 @@ DIRECTORY is the root directory.  If called interactively, it is determined by
 
 (defun ack-previous-match (pos arg)
   (interactive "d\np")
-  (assert (> arg 0))
+  (unless (> arg 0) (error "Negative arg supplied"))
   (dotimes (i (* 2 arg))
     (setq pos (previous-single-property-change pos 'ack-match))
     (unless pos
