@@ -584,17 +584,19 @@ DIRECTORY is the root directory.  If called interactively, it is determined by
 
 (defun ack-visible-distance (beg end)
   "Determine the number of visible characters between BEG and END."
-  (let ((offset 0)
-        next)
-    ;; Subtract invisible text
+  (let ((distance 0))
     (when (get-text-property beg 'invisible)
+      ;; Move to start of visible text.
       (setq beg (next-single-property-change beg 'invisible)))
+    ;; Iterate over visible text ranges:
     (while (and beg (< beg end))
-      (if (setq next (next-single-property-change beg 'invisible))
-          (setq offset (+ offset (- (min next end) beg))
-                beg (next-single-property-change next 'invisible))
-        (setq beg nil)))
-    offset))
+      (let* ((visible-end (or (next-single-property-change beg 'invisible) end))
+             (visible-len (- (min visible-end end) beg))
+             (next-visible (next-single-property-change visible-end
+                                                        'invisible)))
+        (setq distance (+ distance visible-len)
+              beg next-visible)))
+    distance))
 
 (defun ack-previous-property-value (property pos)
   "Find the value of PROPERTY at or somewhere before POS."
