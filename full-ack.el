@@ -343,9 +343,39 @@ This can be used in `ack-root-directory-functions'."
         (save-excursion
           (goto-char (setq beg (point-max)))
           (insert output)
-          ;; Error properties are done by font-lock.
-          (font-lock-fontify-region beg (point-max))))
+          (save-excursion
+            (goto-char beg)
+            (goto-char (point-at-bol))
+            (ack--fontify-region (point))
+            (ack--strip-invisible (point)))))
       (ack-abort))))
+
+(defun ack--fontify-region (beg)
+  ;; Use ack-font-lock-keywords in a way similar `font-lock-fontify-region`
+  ;; would.
+  (save-excursion
+    (dolist (keyword ack-font-lock-keywords)
+      (let ((regexp (car keyword))
+            (group-properties (cdr keyword)))
+        (goto-char beg)
+        (goto-char (point-at-bol))
+        (while (re-search-forward regexp nil t)
+          (dolist (group group-properties)
+            (let ((group-number (car group))
+                  (group-properties (cadr group)))
+              (when (match-beginning group-number)
+                (add-text-properties (match-beginning group-number)
+                                     (match-end group-number)
+                                     (eval group-properties))))))))))
+
+(defun ack--strip-invisible (beg)
+  "Strip text after BEG that has the 'invisible property."
+  (let ((prev beg))
+    (while (setq beg (next-single-property-change beg 'invisible))
+      (if (get-text-property beg 'invisible)
+          (setq prev beg)
+        (delete-region prev beg)
+        (setq beg prev)))))
 
 (defun ack-abort ()
   "Abort the running `ack' process."
@@ -391,7 +421,7 @@ This can be used in `ack-root-directory-functions'."
       (setq buffer-read-only t
             default-directory directory)
       (set (make-local-variable 'ack-buffer--rerun-args) rerun-args)
-      (font-lock-fontify-buffer)
+
       (when (eq ack-display-buffer t)
         (display-buffer (current-buffer))))
     (setq ack-process
@@ -704,7 +734,8 @@ DIRECTORY is the root directory.  If called interactively, it is determined by
 Color is used starting ack 1.94.")
 
 (defvar ack-font-lock-keywords
-  `(("^--" . 'ack-separator)
+  ;; These happen to be in a font-lock compatible format for historic reasons.
+  `(("^--" (0 'ack-separator))
     ;; file and line
     (,(concat "^" ack-font-lock-regexp-color-fg-begin
               "\\(.*?\\)" ack-font-lock-regexp-color-end
@@ -743,15 +774,11 @@ Color is used starting ack 1.94.")
 
 (define-derived-mode ack-mode nil "ack"
   "Major mode for ack output."
-  font-lock-defaults
-  (setq font-lock-defaults
-        (list ack-font-lock-keywords t))
   (set (make-local-variable 'font-lock-extra-managed-props)
        '(mouse-face follow-link ack-line ack-file ack-marker ack-match))
   (make-local-variable 'overlay-arrow-position)
   (set (make-local-variable 'overlay-arrow-string) "")
 
-  (font-lock-fontify-buffer)
   (use-local-map ack-mode-map)
 
   (setq next-error-function 'ack-next-error-function
